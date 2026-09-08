@@ -15,7 +15,8 @@ class EmiSafeWS {
 
   connect() {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${location.host}`;
+    const defaultWsUrl = `${protocol}//${location.host}`;
+    const wsUrl = (typeof window !== 'undefined' && window.EMISAFE_WS_URL) ? window.EMISAFE_WS_URL : defaultWsUrl;
 
     this.socket = new WebSocket(wsUrl);
 

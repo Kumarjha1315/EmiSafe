@@ -3,7 +3,7 @@
  * Automatically injects auth token and handles errors.
  */
 
-const API_BASE = '/api';
+const API_BASE = (typeof window !== 'undefined' && window.EMISAFE_API_URL) ? window.EMISAFE_API_URL : '/api';
 
 function getToken() {
   return sessionStorage.getItem('emisafe_token') || localStorage.getItem('emisafe_responder_token');
@@ -42,10 +42,10 @@ async function apiFetch(endpoint, options = {}) {
 // ─── Convenience methods ──────────────────────────────────────────────────
 
 const api = {
-  get:    (url, opts = {}) => apiFetch(url, { ...opts, method: 'GET' }),
-  post:   (url, body, opts = {}) => apiFetch(url, { ...opts, method: 'POST', body: JSON.stringify(body) }),
+  get: (url, opts = {}) => apiFetch(url, { ...opts, method: 'GET' }),
+  post: (url, body, opts = {}) => apiFetch(url, { ...opts, method: 'POST', body: JSON.stringify(body) }),
   postForm: (url, formData) => apiFetch(url, { method: 'POST', body: formData }),
-  patch:  (url, body, opts = {}) => apiFetch(url, { ...opts, method: 'PATCH', body: JSON.stringify(body) }),
+  patch: (url, body, opts = {}) => apiFetch(url, { ...opts, method: 'PATCH', body: JSON.stringify(body) }),
   delete: (url, opts = {}) => apiFetch(url, { ...opts, method: 'DELETE' }),
 };
 
@@ -103,14 +103,14 @@ function getCategoryIcon(cat) {
 
 function getStatusClass(status) {
   const map = {
-    'Received':  'received',
-    'En Route':  'enroute',
-    'On Scene':  'onscene',
-    'Resolved':  'resolved',
+    'Received': 'received',
+    'En Route': 'enroute',
+    'On Scene': 'onscene',
+    'Resolved': 'resolved',
     'Available': 'available',
-    'Busy':      'busy',
-    'Offline':   'offline',
-    'Pending':   'pending',
+    'Busy': 'busy',
+    'Offline': 'offline',
+    'Pending': 'pending',
   };
   return map[status] || 'received';
 }
