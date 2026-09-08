@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Operations Dashboard — EmiSafe Dispatcher</title>
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body { height: 100%; overflow: hidden; }
+
+    /* App Shell */
+    .app-shell {
+      display: grid;
+      grid-template-rows: 65px 1fr;
+      height: 100vh;
+    }
+
+    .main-content {
+      display: grid;
+      grid-template-columns: 340px 1fr 300px;
+      overflow: hidden;
+    }
+
+    @media (max-width: 1200px) {
+      .main-content { grid-template-columns: 300px 1fr; }
+      .right-panel { display: none; }
+    }
+    @media (max-width: 900px) {
+      html, body { height: auto; overflow: auto; }
+      .app-shell { grid-template-rows: auto; height: auto; }
+      .main-content { grid-template-columns: 1fr; }
+      .map-panel { min-height: 400px; }
+    }
+
+    /* KPI Bar */
+    .kpi-bar {
+      display: flex;
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-5);
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+    }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: var(--space-3) var(--space-4);
+      min-width: 120px;
+      flex-shrink: 0;
+    }
+
+    .kpi-value {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .kpi-label { font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+    /* Left Panel — Incidents */
+    .left-panel {
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: var(--space-4) var(--space-4) 0;
+      flex-shrink: 0;
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: var(--space-1);
+      padding: var(--space-3) var(--space-4);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .filter-tab {
+      padding: 5px 12px;
+      border-radius: var(--r-full);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-secondary);
+      transition: var(--transition);
+    }
+
+    .filter-tab.active, .filter-tab:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-primary);
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    .filter-tab.active { border-color: var(--red); color: var(--red); }
+
+    .panel-scroll { overflow-y: auto; flex: 1; padding: var(--space-3); }
+
+    /* Incident Cards */
+    .incident-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: var(--space-3) var(--space-4);
+      margin-bottom: var(--space-2);
+      transition: var(--transition);
+      cursor: pointer;
+    }
+    .incident-card:hover { border-color: rgba(255,255,255,0.15); background: var(--bg-card-hover); }
+    .incident-card.highlighted { border-color: var(--teal); box-shadow: 0 0 16px var(--teal-glow); }
+
+    .incident-card-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-2);
+    }
+
+    .incident-icon { font-size: 1.2rem; }
+
+    .incident-meta { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+
+    .incident-desc {
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      line-height: 1.4;
+      margin-bottom: var(--space-2);
+    }
+
+    .incident-reporter { color: var(--text-muted); font-size: 0.75rem; margin-bottom: var(--space-2); }
+
+    .incident-responder {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: 0.75rem;
+      margin-bottom: var(--space-2);
+    }
+
+    .incident-actions { display: flex; gap: var(--space-2); }
+
+    /* Map Panel */
+    .map-panel { position: relative; }
+    #dash-map { width: 100%; height: 100%; }
+
+    /* Right Panel */
+    .right-panel {
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .right-section { flex: 1; overflow-y: auto; }
+
+    .right-section-header {
+      padding: var(--space-4) var(--space-4) var(--space-2);
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .pending-badge {
+      background: var(--red);
+      color: #fff;
+      border-radius: var(--r-full);
+      width: 18px;
+      height: 18px;
+      font-size: 0.65rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+    }
+
+    /* Responder Directory */
+    .responder-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .responder-avatar { font-size: 1.3rem; }
+    .responder-info { flex: 1; min-width: 0; }
+    .responder-name { font-size: 0.85rem; font-weight: 600; }
+    .responder-meta { font-size: 0.75rem; color: var(--text-muted); }
+
+    /* Pending Queue */
+    .pending-card {
+      padding: var(--space-3) var(--space-4);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .pending-info { margin-bottom: var(--space-2); }
+    .pending-name { font-size: 0.9rem; font-weight: 600; margin-bottom: 2px; }
+    .pending-actions { display: flex; gap: var(--space-2); }
+
+    /* Audit Log */
+    .audit-timeline { position: relative; }
+    .audit-entry {
+      display: flex;
+      gap: var(--space-3);
+      padding: var(--space-2) 0;
+      position: relative;
+    }
+    .audit-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--teal);
+      flex-shrink: 0;
+      margin-top: 4px;
+      box-shadow: 0 0 8px var(--teal-glow);
+    }
+    .audit-action { font-size: 0.875rem; color: var(--text-primary); }
+    .audit-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+
+    /* Responder Select Modal */
+    .responder-select-list { display: flex; flex-direction: column; gap: var(--space-2); max-height: 300px; overflow-y: auto; }
+    .responder-select-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .responder-select-item:hover { background: var(--bg-card-hover); }
+    .responder-select-item input { accent-color: var(--teal); }
+    .responder-select-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: var(--space-8) var(--space-4);
+      color: var(--text-muted);
+    }
+    .empty-state span { font-size: 2rem; display: block; margin-bottom: var(--space-3); }
+    .empty-state p { font-size: 0.875rem; }
+  </style>
+</head>
+<body>
+  <div id="toast-container"></div>
+
+  <div class="app-shell">
+    <!-- Navbar -->
+    <nav class="navbar" style="position:relative;z-index:10">
+      <a href="/" class="navbar-brand">
+        <div class="navbar-logo">🚨</div>
+        <div>
+          <div class="navbar-title">EmiSafe</div>
+          <div class="navbar-subtitle">Dispatcher Operations</div>
+        </div>
+      </a>
+      <div class="navbar-actions">
+        <div class="kpi-bar" style="background:transparent;border:none;padding:0">
+          <div class="kpi-card">
+            <div class="kpi-value" id="kpi-total" style="color:var(--text-primary)">—</div>
+            <div class="kpi-label">Total</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" id="kpi-active" style="color:var(--red)">—</div>
+            <div class="kpi-label">Active</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" id="kpi-enroute" style="color:var(--amber)">—</div>
+            <div class="kpi-label">En Route</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" id="kpi-resolved" style="color:var(--green)">—</div>
+            <div class="kpi-label">Resolved</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" id="kpi-available" style="color:var(--teal)">—</div>
+            <div class="kpi-label">Available</div>
+          </div>
+        </div>
+        <a href="/dispatcher/analytics.html" class="btn btn-secondary btn-sm">📊 Analytics</a>
+        <button class="btn btn-ghost btn-sm" id="logout-btn">Sign Out</button>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Left: Incident List -->
+      <aside class="left-panel">
+        <div class="panel-header">
+          <div style="font-size:0.9rem;font-weight:700;margin-bottom:var(--space-2)">🚨 Active Incidents</div>
+        </div>
+        <div class="filter-tabs">
+          <button class="filter-tab active" data-filter="all">All</button>
+          <button class="filter-tab" data-filter="active">Active</button>
+          <button class="filter-tab" data-filter="En Route">En Route</button>
+          <button class="filter-tab" data-filter="Resolved">Resolved</button>
+        </div>
+        <div class="panel-scroll" id="incident-list">
+          <div class="empty-state"><span>📡</span><p>Loading incidents…</p></div>
+        </div>
+      </aside>
+
+      <!-- Center: Map -->
+      <div class="map-panel">
+        <div id="dash-map"></div>
+      </div>
+
+      <!-- Right: Responders & Queue -->
+      <aside class="right-panel">
+        <!-- Pending Registration Queue -->
+        <div style="border-bottom:1px solid var(--border)">
+          <div class="right-section-header">
+            Pending Registrations
+            <span class="pending-badge" id="pending-badge"></span>
+          </div>
+          <div style="max-height:280px;overflow-y:auto" id="pending-queue">
+            <div class="empty-state"><span>✅</span><p>No pending</p></div>
+          </div>
+        </div>
+
+        <!-- Responder Directory -->
+        <div class="right-section">
+          <div class="right-section-header">Field Responders</div>
+          <div id="responder-directory">
+            <div class="empty-state"><span>👤</span><p>Loading…</p></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/ws.js"></script>
+  <script src="/js/dispatcher-dashboard.js"></script>
+</body>
+</html>

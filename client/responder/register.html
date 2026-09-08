@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Responder Registration — EmiSafe</title>
+  <meta name="description" content="Register as a field responder on the EmiSafe emergency dispatch platform." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <style>
+    body { min-height: 100vh; }
+    .page { max-width: 640px; margin: 0 auto; padding: var(--space-8) var(--space-6); }
+
+    .dept-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-3);
+      margin-bottom: var(--space-4);
+    }
+    @media (max-width: 500px) { .dept-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .dept-card {
+      position: relative;
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: var(--space-4) var(--space-3);
+      cursor: pointer;
+      transition: var(--transition);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    .dept-card input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+    .dept-card:hover { border-color: rgba(255,255,255,0.2); transform: translateY(-2px); }
+
+    .dept-card[data-dept="Police"].selected  { border-color: var(--blue); background: var(--blue-soft); }
+    .dept-card[data-dept="Fire"].selected    { border-color: var(--red); background: var(--red-soft); }
+    .dept-card[data-dept="Ambulance"].selected { border-color: var(--green); background: var(--green-soft); }
+    .dept-card[data-dept="Disaster"].selected  { border-color: var(--amber); background: var(--amber-soft); }
+
+    .dept-icon { font-size: 2rem; }
+    .dept-label { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
+    .dept-card.selected .dept-label { color: var(--text-primary); }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+    @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+
+    /* Pending state */
+    #pending-state {
+      text-align: center;
+      padding: var(--space-12) var(--space-6);
+    }
+
+    .pending-icon {
+      width: 80px;
+      height: 80px;
+      background: var(--purple-soft);
+      border: 2px solid rgba(139,92,246,0.3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      margin: 0 auto var(--space-6);
+    }
+
+    .tab-group {
+      display: flex;
+      gap: var(--space-2);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      padding: 4px;
+      margin-bottom: var(--space-8);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: var(--r-lg);
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      transition: var(--transition);
+      text-align: center;
+    }
+
+    .tab-btn.active {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-sm);
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-glow-red"></div>
+  <div id="toast-container"></div>
+
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">
+      <div class="navbar-logo">🚨</div>
+      <div>
+        <div class="navbar-title">EmiSafe</div>
+        <div class="navbar-subtitle">Field Responder Portal</div>
+      </div>
+    </a>
+    <a href="/responder/portal.html" class="btn btn-amber btn-sm" style="background:var(--amber-soft);color:var(--amber);border:1px solid rgba(244,162,97,0.3)">🔐 Responder Login</a>
+  </nav>
+
+  <div class="page page-content">
+    <!-- Registration Form -->
+    <div id="register-section">
+      <h1 class="display-md" style="margin-bottom:var(--space-2)">Field Responder Registration</h1>
+      <p class="text-secondary" style="margin-bottom:var(--space-8)">
+        Complete the form below to register. Your account will be activated upon dispatcher verification.
+      </p>
+
+      <form id="register-form" novalidate>
+        <!-- Department -->
+        <div class="card" style="margin-bottom:var(--space-5)">
+          <div class="form-label" style="margin-bottom:var(--space-4)">Department <span style="color:var(--red)">*</span></div>
+          <div class="dept-grid">
+            <label class="dept-card" data-dept="Police">
+              <input type="radio" name="department" value="Police" />
+              <div class="dept-icon">🚔</div>
+              <div class="dept-label">Police</div>
+            </label>
+            <label class="dept-card" data-dept="Fire">
+              <input type="radio" name="department" value="Fire" />
+              <div class="dept-icon">🚒</div>
+              <div class="dept-label">Fire</div>
+            </label>
+            <label class="dept-card" data-dept="Ambulance">
+              <input type="radio" name="department" value="Ambulance" />
+              <div class="dept-icon">🚑</div>
+              <div class="dept-label">Ambulance</div>
+            </label>
+            <label class="dept-card" data-dept="Disaster">
+              <input type="radio" name="department" value="Disaster" />
+              <div class="dept-icon">⛑️</div>
+              <div class="dept-label">Disaster</div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Personal Info -->
+        <div class="card" style="margin-bottom:var(--space-5)">
+          <div class="form-label" style="margin-bottom:var(--space-4)">Personal Information</div>
+          <div class="form-row" style="margin-bottom:var(--space-4)">
+            <div class="form-group">
+              <label class="form-label" for="fullName">Full Name <span style="color:var(--red)">*</span></label>
+              <input class="form-input" type="text" id="fullName" name="fullName" placeholder="Your full name" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="badgeId">Badge ID <span style="color:var(--red)">*</span></label>
+              <input class="form-input" type="text" id="badgeId" name="badgeId" placeholder="e.g. KA-7429" required />
+            </div>
+          </div>
+          <div class="form-row" style="margin-bottom:var(--space-4)">
+            <div class="form-group">
+              <label class="form-label" for="email">Email Address <span style="color:var(--red)">*</span></label>
+              <input class="form-input" type="email" id="email" name="email" placeholder="you@department.gov.in" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="phone">Phone Number <span style="color:var(--red)">*</span></label>
+              <input class="form-input" type="tel" id="phone" name="phone" placeholder="+91 XXXXX XXXXX" required />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="yearsOfExperience">Years of Experience <span style="color:var(--red)">*</span></label>
+            <input class="form-input" type="number" id="yearsOfExperience" name="yearsOfExperience" placeholder="e.g. 5" min="0" max="50" required style="max-width:200px" />
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-xl btn-full" id="register-btn">
+          📋 Submit Registration
+        </button>
+        <p class="text-xs text-muted" style="text-align:center;margin-top:var(--space-3)">
+          Already registered? <a href="/responder/portal.html" style="color:var(--amber)">Access your portal →</a>
+        </p>
+      </form>
+    </div>
+
+    <!-- Pending State -->
+    <div id="pending-state" class="hidden">
+      <div class="pending-icon">⏳</div>
+      <h2 class="display-md" style="color:var(--purple);margin-bottom:var(--space-3)">Registration Submitted!</h2>
+      <p class="text-secondary" style="margin-bottom:var(--space-6)">
+        Your credentials are pending dispatcher verification. You'll be assigned to incidents once approved.
+      </p>
+      <div class="card" style="max-width:340px;margin:0 auto var(--space-6)">
+        <div class="text-xs text-muted text-center" style="margin-bottom:var(--space-2)">Registered as</div>
+        <div style="font-weight:700;font-size:1.1rem" id="reg-name-display">—</div>
+        <div class="text-sm text-muted" id="reg-dept-display">—</div>
+      </div>
+      <a href="/responder/portal.html" class="btn btn-primary btn-lg">Access Responder Portal →</a>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Department card selection
+      document.querySelectorAll('.dept-card').forEach(card => {
+        card.addEventListener('click', () => {
+          document.querySelectorAll('.dept-card').forEach(c => c.classList.remove('selected'));
+          card.classList.add('selected');
+          card.querySelector('input[type="radio"]').checked = true;
+        });
+      });
+
+      const form = document.getElementById('register-form');
+      const btn  = document.getElementById('register-btn');
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const dept = form.querySelector('input[name="department"]:checked');
+        if (!dept) { showToast('Please select your department.', 'error'); return; }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Submitting…';
+
+        try {
+          const data = await api.post('/responders/register', {
+            department:        dept.value,
+            fullName:          form.fullName.value.trim(),
+            badgeId:           form.badgeId.value.trim(),
+            email:             form.email.value.trim(),
+            phone:             form.phone.value.trim(),
+            yearsOfExperience: parseInt(form.yearsOfExperience.value),
+          });
+
+          document.getElementById('reg-name-display').textContent = data.responder.fullName;
+          document.getElementById('reg-dept-display').textContent = `${data.responder.department} Department · ${data.responder.badgeId}`;
+
+          document.getElementById('register-section').classList.add('hidden');
+          document.getElementById('pending-state').classList.remove('hidden');
+          showToast('Registration submitted!', 'success');
+        } catch (err) {
+          showToast(err.message || 'Registration failed. Please try again.', 'error');
+          btn.disabled = false;
+          btn.innerHTML = '📋 Submit Registration';
+        }
+      });
+    });
+  </script>
+</body>
+</html>

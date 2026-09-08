@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Report Emergency — EmiSafe</title>
+  <meta name="description" content="Report an emergency incident with location, details, and optional photo evidence." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { background: var(--bg-base); }
+    .page { max-width: 860px; margin: 0 auto; padding: var(--space-8) var(--space-6); }
+
+    /* Category Cards */
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-3);
+    }
+    @media (max-width: 600px) { .category-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .category-card {
+      position: relative;
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: var(--space-5) var(--space-3);
+      cursor: pointer;
+      transition: var(--transition);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    .category-card input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+    .category-card:hover { border-color: rgba(255,255,255,0.2); transform: translateY(-2px); }
+
+    .category-card.selected { transform: translateY(-2px); }
+    .category-card[data-cat="Police"].selected { border-color: var(--blue); background: var(--blue-soft); box-shadow: 0 0 20px rgba(59,130,246,0.2); }
+    .category-card[data-cat="Fire"].selected { border-color: var(--red); background: var(--red-soft); box-shadow: 0 0 20px var(--red-glow); }
+    .category-card[data-cat="Ambulance"].selected { border-color: var(--green); background: var(--green-soft); box-shadow: 0 0 20px var(--green-glow); }
+    .category-card[data-cat="Disaster"].selected { border-color: var(--amber); background: var(--amber-soft); box-shadow: 0 0 20px var(--amber-glow); }
+
+    .cat-icon { font-size: 2rem; }
+    .cat-label { font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); }
+    .category-card.selected .cat-label { color: var(--text-primary); }
+
+    /* Map */
+    #location-map { height: 280px; border-radius: var(--r-lg); border: 1px solid var(--border); }
+
+    .location-controls {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+      margin-bottom: var(--space-3);
+    }
+
+    .location-status {
+      padding: 8px 14px;
+      border-radius: var(--r-sm);
+      font-size: 0.8rem;
+      display: none;
+    }
+    .location-status--success { background: var(--green-soft); color: var(--green); border: 1px solid rgba(6,214,160,0.2); }
+    .location-status--error   { background: var(--red-soft); color: var(--red); border: 1px solid rgba(230,57,70,0.2); }
+    .location-status--info    { background: var(--teal-soft); color: var(--teal); border: 1px solid rgba(46,196,182,0.2); }
+
+    .address-display {
+      padding: 10px 14px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      min-height: 40px;
+    }
+
+    /* File Upload */
+    .media-dropzone {
+      border: 2px dashed var(--border);
+      border-radius: var(--r-lg);
+      padding: var(--space-8) var(--space-6);
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-3);
+    }
+    .media-dropzone:hover, .media-dropzone.drag-over {
+      border-color: var(--red);
+      background: var(--red-soft);
+    }
+
+    .media-preview { display: none; }
+    .media-preview-inner { position: relative; display: inline-block; }
+    .media-preview-inner img { max-height: 200px; border-radius: var(--r-md); border: 1px solid var(--border); }
+    .media-remove-btn {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      width: 24px;
+      height: 24px;
+      background: var(--red);
+      border: none;
+      border-radius: 50%;
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.7rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Success State */
+    #success-section {
+      text-align: center;
+      padding: var(--space-16) var(--space-8);
+    }
+
+    .success-icon {
+      width: 80px;
+      height: 80px;
+      background: var(--green-soft);
+      border: 2px solid rgba(6,214,160,0.3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      margin: 0 auto var(--space-6);
+      animation: scaleIn 0.5s var(--ease);
+    }
+
+    .report-id-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: var(--space-6);
+      margin: var(--space-6) auto;
+      max-width: 360px;
+    }
+
+    .report-id-value {
+      font-family: var(--font-mono);
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--teal);
+      letter-spacing: 0.05em;
+    }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+    @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-4);
+    }
+
+    .step-indicator {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--red-soft);
+      border: 1px solid rgba(230,57,70,0.3);
+      color: var(--red);
+      font-size: 0.7rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-glow-red"></div>
+  <div id="toast-container"></div>
+
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">
+      <div class="navbar-logo">🚨</div>
+      <div>
+        <div class="navbar-title">EmiSafe</div>
+        <div class="navbar-subtitle">Report Emergency</div>
+      </div>
+    </a>
+    <a href="/citizen/track.html" class="btn btn-secondary btn-sm">📍 Track Report</a>
+  </nav>
+
+  <div class="page page-content">
+    <!-- Form Section -->
+    <div id="report-form-section">
+      <h1 class="display-md" style="margin-bottom:var(--space-2)">Report an Emergency</h1>
+      <p class="text-secondary" style="margin-bottom:var(--space-8)">
+        Fill in the details below. No registration required — you'll receive a unique Report ID.
+      </p>
+
+      <form id="report-form" novalidate>
+        <!-- Step 1: Category -->
+        <div class="card" style="margin-bottom:var(--space-5)">
+          <div class="section-title">
+            <div class="step-indicator">1</div>
+            Emergency Category
+          </div>
+          <div class="category-grid">
+            <label class="category-card" data-cat="Police">
+              <input type="radio" name="category" value="Police" />
+              <div class="cat-icon">🚔</div>
+              <div class="cat-label">Police</div>
+            </label>
+            <label class="category-card" data-cat="Fire">
+              <input type="radio" name="category" value="Fire" />
+              <div class="cat-icon">🔥</div>
+              <div class="cat-label">Fire</div>
+            </label>
+            <label class="category-card" data-cat="Ambulance">
+              <input type="radio" name="category" value="Ambulance" />
+              <div class="cat-icon">🚑</div>
+              <div class="cat-label">Ambulance</div>
+            </label>
+            <label class="category-card" data-cat="Disaster">
+              <input type="radio" name="category" value="Disaster" />
+              <div class="cat-icon">⚠️</div>
+              <div class="cat-label">Disaster</div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Step 2: Description -->
+        <div class="card" style="margin-bottom:var(--space-5)">
+          <div class="section-title">
+            <div class="step-indicator">2</div>
+            Incident Description
+          </div>
+          <div class="form-group">
+            <label class="form-label">Describe what's happening</label>
+            <textarea class="form-textarea" name="description" id="description" placeholder="Provide as much detail as possible — location landmarks, number of people involved, injuries, etc." required style="min-height:120px"></textarea>
+          </div>
+        </div>
+
+        <!-- Step 3: Location -->
+        <div class="card" style="margin-bottom:var(--space-5)">
+          <div class="section-title">
+            <div class="step-indicator">3</div>
+            Your Location
+          </div>
+          <div class="location-controls">
+            <button type="button" class="btn btn-primary btn-sm" id="get-location-btn">📍 Use My Location</button>
+            <span class="text-xs text-muted">or click on the map to set manually</span>
+          </div>
+          <div id="location-status" class="location-status"></div>
+          <div id="location-map" style="margin-bottom:var(--space-3)"></div>
+          <div class="address-display" id="address-display">Location not set — click the map or use GPS</div>
+          <input type="hidden" id="hidden-lat" name="lat" />
+          <input type="hidden" id="hidden-lng" name="lng" />
+          <input type="hidden" id="hidden-address" name="address" />
+        </div>
+
+        <!-- Step 4: Personal Info -->
+        <div class="card" style="margin-bottom:var(--space-5)">
+          <div class="section-title">
+            <div class="step-indicator">4</div>
+            Your Information
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="reporterName">Full Name <span style="color:var(--red)">*</span></label>
+              <input class="form-input" type="text" id="reporterName" name="reporterName" placeholder="Your full name" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="reporterPhone">Phone Number <span style="color:var(--red)">*</span></label>
+              <input class="form-input" type="tel" id="reporterPhone" name="reporterPhone" placeholder="+91 XXXXX XXXXX" required />
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 5: Media -->
+        <div class="card" style="margin-bottom:var(--space-6)">
+          <div class="section-title">
+            <div class="step-indicator">5</div>
+            Photo Evidence <span class="text-xs text-muted" style="font-weight:400;margin-left:8px">Optional</span>
+          </div>
+          <div id="media-dropzone" class="media-dropzone">
+            <span style="font-size:2rem">📷</span>
+            <div class="text-sm text-secondary">Click to upload or drag & drop a photo</div>
+            <div class="text-xs text-muted">JPG, PNG, WEBP — Max 10MB</div>
+            <input type="file" id="media-input" name="media" accept="image/*" style="display:none" />
+          </div>
+          <div id="media-preview" class="media-preview"></div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-xl btn-full" id="submit-btn">
+          🚨 Submit Emergency Report
+        </button>
+        <p class="text-xs text-muted" style="text-align:center;margin-top:var(--space-3)">
+          Your report will be sent directly to the nearest emergency dispatcher.
+        </p>
+      </form>
+    </div>
+
+    <!-- Success Section -->
+    <div id="success-section" class="hidden">
+      <div class="success-icon">✅</div>
+      <h2 class="display-md" style="color:var(--green);margin-bottom:var(--space-3)">Report Submitted!</h2>
+      <p class="text-secondary" style="margin-bottom:var(--space-4)">Your emergency report has been received by our dispatch center.</p>
+
+      <div class="report-id-box">
+        <div class="text-xs text-muted" style="margin-bottom:var(--space-2);text-transform:uppercase;letter-spacing:0.1em">Your Report ID</div>
+        <div class="report-id-value" id="report-id-display">—</div>
+        <div class="text-xs text-muted" style="margin-top:var(--space-2)">Save this ID to track your incident status</div>
+      </div>
+
+      <div class="flex gap-3" style="justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-secondary" id="copy-btn">📋 Copy Report ID</button>
+        <a id="track-link" href="/citizen/track.html" class="btn btn-teal">📍 Track My Report</a>
+      </div>
+
+      <div class="divider"></div>
+      <a href="/" class="btn btn-ghost">← Back to Home</a>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/citizen-report.js"></script>
+  <script>
+    // Update track link after reportId is shown
+    document.addEventListener('DOMContentLoaded', () => {
+      const orig = window.showSuccess;
+      // Patch to also update the track link
+      window.showSuccess = (reportId) => {
+        orig(reportId);
+        document.getElementById('track-link').href = `/citizen/track.html?id=${reportId}`;
+      };
+    });
+  </script>
+</body>
+</html>

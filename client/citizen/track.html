@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Track Emergency — EmiSafe</title>
+  <meta name="description" content="Track your emergency report in real time. See responder location and estimated arrival time." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { background: var(--bg-base); }
+    .track-layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 0;
+      height: calc(100vh - 65px);
+    }
+    @media (max-width: 900px) {
+      .track-layout { grid-template-columns: 1fr; height: auto; }
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .sidebar-header {
+      padding: var(--space-5) var(--space-5) 0;
+    }
+
+    .search-form {
+      display: flex;
+      gap: var(--space-2);
+      margin-bottom: var(--space-4);
+    }
+
+    #report-id-input {
+      flex: 1;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* History */
+    .history-panel {
+      padding: 0 var(--space-5) var(--space-5);
+    }
+
+    .history-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: var(--space-2);
+    }
+
+    .history-list { list-style: none; }
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      transition: var(--transition);
+      gap: var(--space-2);
+    }
+    .history-item:hover { background: var(--bg-card-hover); }
+    .history-id { color: var(--teal); font-size: 0.85rem; }
+    .history-empty { font-size: 0.8rem; color: var(--text-muted); padding: var(--space-3); }
+
+    /* Incident info panel */
+    .incident-info {
+      padding: var(--space-5);
+      border-top: 1px solid var(--border);
+      flex: 1;
+    }
+
+    #track-loading, #track-empty { padding: var(--space-8) var(--space-5); text-align: center; }
+    #track-empty p { color: var(--text-secondary); margin-top: var(--space-3); font-size: 0.875rem; }
+
+    .inc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-4);
+    }
+
+    .inc-category-tag {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .info-row {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-1);
+      padding: var(--space-3) 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .info-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .info-value { font-size: 0.9rem; color: var(--text-primary); }
+
+    /* ETA Card */
+    .eta-card {
+      background: var(--teal-soft);
+      border: 1px solid rgba(46,196,182,0.2);
+      border-radius: var(--r-md);
+      padding: var(--space-4);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-3);
+      margin: var(--space-4) 0;
+    }
+
+    .eta-item { text-align: center; }
+    .eta-value { font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; color: var(--teal); }
+    .eta-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+    /* Responder Panel */
+    .responder-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: var(--space-4);
+      margin-top: var(--space-3);
+    }
+
+    /* Stepper */
+    .stepper-wrap { padding: var(--space-4) 0; }
+
+    /* Map */
+    #track-map { flex: 1; min-height: 400px; }
+  </style>
+</head>
+<body>
+  <div id="toast-container"></div>
+
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">
+      <div class="navbar-logo">🚨</div>
+      <div>
+        <div class="navbar-title">EmiSafe</div>
+        <div class="navbar-subtitle">Live Tracking</div>
+      </div>
+    </a>
+    <a href="/citizen/report.html" class="btn btn-primary btn-sm">🆘 New Report</a>
+  </nav>
+
+  <div class="track-layout page-content">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2 class="text-lg" style="font-weight:700;margin-bottom:var(--space-3)">Track Report</h2>
+        <form id="track-form" class="search-form">
+          <input class="form-input" type="text" id="report-id-input" placeholder="EMI-XXXXXXXX" autocomplete="off" />
+          <button type="submit" class="btn btn-primary btn-sm">Track</button>
+        </form>
+      </div>
+
+      <!-- History -->
+      <div class="history-panel">
+        <div class="history-label">Recent Reports</div>
+        <ul class="history-list" id="history-list">
+          <li class="history-empty">No recent reports</li>
+        </ul>
+      </div>
+
+      <div class="divider" style="margin:0"></div>
+
+      <!-- Loading -->
+      <div id="track-loading" class="hidden">
+        <div class="spinner" style="margin:0 auto;width:32px;height:32px;border-width:3px"></div>
+        <p class="text-secondary" style="margin-top:var(--space-3)">Loading incident…</p>
+      </div>
+
+      <!-- Empty -->
+      <div id="track-empty" class="hidden">
+        <span style="font-size:2.5rem">🔍</span>
+        <p id="track-error-msg">Enter your Report ID above to track your incident.</p>
+        <a href="/citizen/report.html" class="btn btn-primary btn-sm" style="margin-top:var(--space-4)">Report New Incident</a>
+      </div>
+
+      <!-- Results -->
+      <div id="track-results" class="incident-info hidden">
+        <!-- Category & Status -->
+        <div class="inc-header">
+          <div class="inc-category-tag" id="inc-category">—</div>
+          <span class="badge" id="inc-status-badge">—</span>
+        </div>
+
+        <!-- Report ID & Time -->
+        <div class="info-row">
+          <div class="info-label">Report ID</div>
+          <div class="info-value font-mono" id="inc-report-id">—</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Reported At</div>
+          <div class="info-value" id="inc-time">—</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Description</div>
+          <div class="info-value text-sm text-secondary" id="inc-description">—</div>
+        </div>
+
+        <!-- Status Stepper -->
+        <div class="stepper-wrap">
+          <div class="info-label" style="margin-bottom:var(--space-3)">Progress</div>
+          <div class="stepper">
+            <div class="step" id="step-received">
+              <div class="step-circle">1</div>
+              <div class="step-label">Received</div>
+            </div>
+            <div class="step-connector" id="connector-0"></div>
+            <div class="step" id="step-en-route">
+              <div class="step-circle">2</div>
+              <div class="step-label">En Route</div>
+            </div>
+            <div class="step-connector" id="connector-1"></div>
+            <div class="step" id="step-on-scene">
+              <div class="step-circle">3</div>
+              <div class="step-label">On Scene</div>
+            </div>
+            <div class="step-connector" id="connector-2"></div>
+            <div class="step" id="step-resolved">
+              <div class="step-circle">4</div>
+              <div class="step-label">Resolved</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ETA Card -->
+        <div class="eta-card">
+          <div class="eta-item">
+            <div class="eta-value" id="eta-time">—</div>
+            <div class="eta-label">ETA</div>
+          </div>
+          <div class="eta-item">
+            <div class="eta-value" id="eta-distance">—</div>
+            <div class="eta-label">Distance</div>
+          </div>
+        </div>
+
+        <!-- Responder Panel -->
+        <div class="responder-panel hidden" id="responder-panel">
+          <div class="info-label" style="margin-bottom:var(--space-2)">Assigned Responder</div>
+          <div style="display:flex;align-items:center;gap:var(--space-3)">
+            <div style="font-size:1.5rem">🚒</div>
+            <div>
+              <div style="font-weight:600" id="resp-name">—</div>
+              <div class="text-xs text-muted" id="resp-dept">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Map -->
+    <main>
+      <div id="track-map" class="h-full"></div>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/ws.js"></script>
+  <script src="/js/citizen-track.js"></script>
+</body>
+</html>

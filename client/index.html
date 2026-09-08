@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EmiSafe — Urban Emergency Dispatch Platform</title>
+  <meta name="description" content="EmiSafe is a unified emergency dispatch and tracking platform connecting citizens, dispatchers, and field responders in real time." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚨</text></svg>" />
+  <link rel="stylesheet" href="/css/global.css" />
+  <style>
+    /* ── Landing Page Styles ── */
+    body { overflow-x: hidden; }
+
+    /* Hero */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: var(--space-12) var(--space-6);
+      position: relative;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 6px 16px;
+      background: var(--red-soft);
+      border: 1px solid rgba(230, 57, 70, 0.3);
+      border-radius: var(--r-full);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--red);
+      margin-bottom: var(--space-6);
+      animation: fadeInDown 0.6s ease both;
+    }
+
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: clamp(3rem, 8vw, 6rem);
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      margin-bottom: var(--space-6);
+      animation: fadeInDown 0.7s ease 0.1s both;
+    }
+
+    .hero-title .accent-red { color: var(--red); }
+    .hero-title .accent-teal { color: var(--teal); }
+
+    .hero-subtitle {
+      max-width: 600px;
+      font-size: 1.15rem;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin: 0 auto var(--space-10);
+      animation: fadeInDown 0.7s ease 0.2s both;
+    }
+
+    /* Role Cards */
+    .role-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-6);
+      max-width: 960px;
+      width: 100%;
+      margin: 0 auto;
+      animation: fadeInUp 0.8s ease 0.3s both;
+    }
+
+    @media (max-width: 768px) {
+      .role-cards { grid-template-columns: 1fr; max-width: 380px; }
+    }
+
+    .role-card {
+      position: relative;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      padding: var(--space-8) var(--space-6);
+      cursor: pointer;
+      transition: var(--transition-slow);
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: var(--space-4);
+      overflow: hidden;
+    }
+
+    .role-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: var(--r-xl);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .role-card:hover {
+      transform: translateY(-8px);
+      border-color: transparent;
+    }
+
+    .role-card:hover::before { opacity: 1; }
+
+    .role-card.citizen::before  { background: linear-gradient(135deg, rgba(230,57,70,0.15), transparent); border: 1px solid rgba(230,57,70,0.3); border-radius: var(--r-xl); }
+    .role-card.dispatcher::before { background: linear-gradient(135deg, rgba(46,196,182,0.15), transparent); border: 1px solid rgba(46,196,182,0.3); border-radius: var(--r-xl); }
+    .role-card.responder::before  { background: linear-gradient(135deg, rgba(244,162,97,0.15), transparent); border: 1px solid rgba(244,162,97,0.3); border-radius: var(--r-xl); }
+
+    .role-card:hover .role-icon { transform: scale(1.15); }
+
+    .role-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: var(--r-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      transition: transform 0.3s ease;
+      position: relative;
+      z-index: 1;
+    }
+
+    .citizen .role-icon   { background: var(--red-soft); border: 1px solid rgba(230,57,70,0.2); }
+    .dispatcher .role-icon{ background: var(--teal-soft); border: 1px solid rgba(46,196,182,0.2); }
+    .responder .role-icon { background: var(--amber-soft); border: 1px solid rgba(244,162,97,0.2); }
+
+    .role-name {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      position: relative;
+      z-index: 1;
+    }
+
+    .role-desc {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      position: relative;
+      z-index: 1;
+    }
+
+    .role-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      width: 100%;
+      position: relative;
+      z-index: 1;
+    }
+
+    .role-features li {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      text-align: left;
+    }
+
+    .role-features li::before {
+      content: '✓';
+      font-size: 0.7rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .citizen  .role-features li::before { background: var(--red-soft); color: var(--red); }
+    .dispatcher .role-features li::before { background: var(--teal-soft); color: var(--teal); }
+    .responder  .role-features li::before { background: var(--amber-soft); color: var(--amber); }
+
+    .role-cta {
+      margin-top: var(--space-2);
+      padding: 10px 20px;
+      border-radius: var(--r-md);
+      font-size: 0.875rem;
+      font-weight: 600;
+      position: relative;
+      z-index: 1;
+      transition: var(--transition);
+    }
+
+    .citizen .role-cta { background: var(--red-soft); color: var(--red); border: 1px solid rgba(230,57,70,0.3); }
+    .dispatcher .role-cta { background: var(--teal-soft); color: var(--teal); border: 1px solid rgba(46,196,182,0.3); }
+    .responder .role-cta { background: var(--amber-soft); color: var(--amber); border: 1px solid rgba(244,162,97,0.3); }
+
+    .role-card:hover .role-cta { filter: brightness(1.2); }
+
+    /* Stats Bar */
+    .stats-bar {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-12);
+      margin-top: var(--space-16);
+      padding-top: var(--space-12);
+      border-top: 1px solid var(--border);
+      animation: fadeInUp 0.8s ease 0.5s both;
+    }
+
+    @media (max-width: 600px) { .stats-bar { gap: var(--space-6); } }
+
+    .stat-item { text-align: center; }
+    .stat-value {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .stat-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+
+    /* Animated grid lines background */
+    .grid-bg {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Animations */
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="bg-glow-red"></div>
+  <div class="bg-glow-teal"></div>
+  <div id="toast-container"></div>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">
+      <div class="navbar-logo">🚨</div>
+      <div>
+        <div class="navbar-title">EmiSafe</div>
+        <div class="navbar-subtitle">Emergency Dispatch Platform</div>
+      </div>
+    </a>
+    <div class="navbar-actions">
+      <span class="badge badge-available" style="font-size:0.7rem">
+        <span class="pulse-dot green" style="width:6px;height:6px"></span>
+        System Online
+      </span>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero page-content">
+    <div class="hero-badge">
+      <span class="pulse-dot red"></span>
+      Real-time Emergency Response Network
+    </div>
+
+    <h1 class="hero-title">
+      Urban Emergency<br />
+      <span class="accent-red">Response</span>
+      <span style="color: var(--text-muted)"> — </span>
+      <span class="accent-teal">Unified</span>
+    </h1>
+
+    <p class="hero-subtitle">
+      EmiSafe connects citizens reporting emergencies with dispatchers and field responders in real time.
+      Track every incident from report to resolution on a live map.
+    </p>
+
+    <!-- Role Selection Cards -->
+    <div class="role-cards">
+      <!-- Citizen -->
+      <a href="/citizen/report.html" class="role-card citizen">
+        <div class="role-icon">🆘</div>
+        <div class="role-name">Citizen</div>
+        <p class="role-desc">Report an emergency and track your incident in real time. No registration required.</p>
+        <ul class="role-features">
+          <li>Submit emergency reports instantly</li>
+          <li>Live GPS location sharing</li>
+          <li>Photo evidence upload</li>
+          <li>Track responder ETA on map</li>
+        </ul>
+        <div class="role-cta">Report Emergency →</div>
+      </a>
+
+      <!-- Dispatcher -->
+      <a href="/dispatcher/login.html" class="role-card dispatcher">
+        <div class="role-icon">📡</div>
+        <div class="role-name">Dispatcher</div>
+        <p class="role-desc">Manage all incidents, assign responders, and monitor operations from a central dashboard.</p>
+        <ul class="role-features">
+          <li>Live incident operations map</li>
+          <li>Assign & verify responders</li>
+          <li>Full analytics dashboard</li>
+          <li>Audit trail & history log</li>
+        </ul>
+        <div class="role-cta">Open Dashboard →</div>
+      </a>
+
+      <!-- Responder -->
+      <a href="/responder/register.html" class="role-card responder">
+        <div class="role-icon">🚒</div>
+        <div class="role-name">Field Responder</div>
+        <p class="role-desc">Register your credentials, receive assignments, and update incident status from the field.</p>
+        <ul class="role-features">
+          <li>View assigned incident details</li>
+          <li>Navigation to incident site</li>
+          <li>Real-time status updates</li>
+          <li>Verified by dispatcher</li>
+        </ul>
+        <div class="role-cta">Register / Login →</div>
+      </a>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-bar container">
+      <div class="stat-item">
+        <div class="stat-value" id="stat-total">—</div>
+        <div class="stat-label">Total Incidents</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="stat-active">—</div>
+        <div class="stat-label">Active Now</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="stat-resolved">—</div>
+        <div class="stat-label">Resolved</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="stat-responders">—</div>
+        <div class="stat-label">Responders Online</div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // Load public stats on landing page (no auth needed)
+    // We'll use a lightweight unauthenticated endpoint
+    async function loadStats() {
+      try {
+        // Try to get basic counts (the summary endpoint needs auth, so we show placeholder)
+        // Stats are decorative on the public landing page
+        const animated = [
+          { el: 'stat-total', end: 0 },
+          { el: 'stat-active', end: 0 },
+          { el: 'stat-resolved', end: 0 },
+          { el: 'stat-responders', end: 0 },
+        ];
+
+        // Animate counting up from 0
+        animated.forEach(({ el, end }) => {
+          const elem = document.getElementById(el);
+          if (!elem) return;
+          let current = 0;
+          const step = Math.max(1, Math.floor(end / 40));
+          const timer = setInterval(() => {
+            current = Math.min(current + step, end);
+            elem.textContent = current.toLocaleString();
+            if (current >= end) clearInterval(timer);
+          }, 30);
+        });
+      } catch (e) {
+        // Silent fail on landing
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadStats);
+  </script>
+</body>
+</html>

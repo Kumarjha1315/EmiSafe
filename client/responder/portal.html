@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Responder Portal — EmiSafe</title>
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { min-height: 100vh; }
+
+    .portal-layout {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 0;
+      height: calc(100vh - 65px);
+    }
+    @media (max-width: 900px) {
+      .portal-layout { grid-template-columns: 1fr; height: auto; }
+    }
+
+    /* Login */
+    .login-panel {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(100vh - 65px);
+      padding: var(--space-6);
+    }
+
+    .login-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-2xl);
+      padding: var(--space-8);
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .login-icon {
+      width: 64px;
+      height: 64px;
+      background: var(--amber-soft);
+      border: 1px solid rgba(244,162,97,0.3);
+      border-radius: var(--r-xl);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      margin-bottom: var(--space-5);
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-header {
+      padding: var(--space-5);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .responder-profile {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .profile-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--r-md);
+      background: var(--amber-soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+    }
+
+    /* Incident Panel */
+    .incident-panel { padding: var(--space-5); flex: 1; }
+
+    .inc-detail {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      margin-bottom: var(--space-4);
+    }
+
+    .inc-detail-header {
+      padding: var(--space-4);
+      background: var(--red-soft);
+      border-bottom: 1px solid rgba(230,57,70,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .inc-detail-body { padding: var(--space-4); }
+
+    .detail-row {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: var(--space-2) 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .detail-value { font-size: 0.9rem; color: var(--text-primary); }
+
+    /* Status Buttons */
+    .status-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      margin-top: var(--space-4);
+    }
+
+    .status-btn { justify-content: flex-start; }
+
+    /* No Assignment */
+    #no-assignment {
+      text-align: center;
+      padding: var(--space-12) var(--space-5);
+    }
+
+    /* Map */
+    #portal-map { width: 100%; height: 100%; min-height: 400px; }
+
+    /* Pending Section */
+    #pending-section {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(100vh - 65px);
+      text-align: center;
+      padding: var(--space-6);
+    }
+
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 10px 16px;
+      background: var(--teal-soft);
+      border: 1px solid rgba(46,196,182,0.3);
+      border-radius: var(--r-md);
+      color: var(--teal);
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 600;
+      transition: var(--transition);
+      margin-top: var(--space-4);
+      display: block;
+      text-align: center;
+    }
+    .nav-btn:hover { filter: brightness(1.2); }
+  </style>
+</head>
+<body>
+  <div id="toast-container"></div>
+
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">
+      <div class="navbar-logo">🚨</div>
+      <div>
+        <div class="navbar-title">EmiSafe</div>
+        <div class="navbar-subtitle">Field Responder Portal</div>
+      </div>
+    </a>
+    <div class="navbar-actions" id="nav-actions">
+      <a href="/responder/register.html" class="btn btn-secondary btn-sm">Register</a>
+    </div>
+  </nav>
+
+  <!-- Login Section -->
+  <div id="login-section" class="login-panel page-content">
+    <div class="login-card">
+      <div class="login-icon">🚒</div>
+      <h1 class="text-xl" style="font-weight:700;margin-bottom:var(--space-2)">Responder Portal</h1>
+      <p class="text-sm text-secondary" style="margin-bottom:var(--space-6)">Enter your Badge ID and registered email to access your portal.</p>
+
+      <form id="responder-login-form" novalidate>
+        <div class="form-group" style="margin-bottom:var(--space-4)">
+          <label class="form-label" for="badgeId">Badge ID</label>
+          <input class="form-input font-mono" type="text" id="badgeId" name="badgeId" placeholder="e.g. KA-7429" required autocomplete="username" />
+        </div>
+        <div class="form-group" style="margin-bottom:var(--space-6)">
+          <label class="form-label" for="email">Email Address</label>
+          <input class="form-input" type="email" id="email" name="email" placeholder="you@department.gov.in" required autocomplete="email" />
+        </div>
+        <button type="submit" class="btn btn-primary btn-full btn-lg" id="login-btn">
+          🔐 Access Portal
+        </button>
+      </form>
+
+      <div class="divider"></div>
+      <p class="text-xs text-muted text-center">
+        Not registered yet? <a href="/responder/register.html" style="color:var(--amber)">Register here →</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- Pending Approval Section -->
+  <div id="pending-section" class="hidden page-content">
+    <div>
+      <div style="font-size:3rem;margin-bottom:var(--space-4)">⏳</div>
+      <h2 class="display-md" style="color:var(--purple)">Pending Approval</h2>
+      <p class="text-secondary" style="margin-top:var(--space-3)">Your registration is awaiting dispatcher verification.<br/>You'll be assigned to incidents once approved.</p>
+      <a href="/" class="btn btn-ghost" style="margin-top:var(--space-6)">← Back to Home</a>
+    </div>
+  </div>
+
+  <!-- Portal Section -->
+  <div id="portal-section" class="hidden">
+    <div class="portal-layout page-content">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="responder-profile">
+            <div class="profile-avatar">🚒</div>
+            <div>
+              <div style="font-weight:700;font-size:0.95rem" id="resp-name-header">—</div>
+              <div class="text-xs text-muted" id="resp-dept-header">—</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:var(--space-2)">
+            <span class="badge" id="resp-status-badge">—</span>
+            <button class="btn btn-ghost btn-sm" id="logout-btn">Out</button>
+          </div>
+        </div>
+
+        <!-- Incident Details -->
+        <div class="incident-panel">
+          <!-- No Assignment -->
+          <div id="no-assignment">
+            <div style="font-size:2.5rem;margin-bottom:var(--space-4)">📭</div>
+            <div style="font-weight:600;margin-bottom:var(--space-2)">No Active Assignment</div>
+            <p class="text-sm text-secondary">You'll be notified and this page will update automatically when an incident is assigned to you.</p>
+            <div style="margin-top:var(--space-4)">
+              <span class="badge badge-available" style="font-size:0.75rem">
+                <span class="pulse-dot green" style="width:6px;height:6px"></span>
+                Standing By
+              </span>
+            </div>
+          </div>
+
+          <!-- Active Incident -->
+          <div id="incident-panel" class="hidden">
+            <!-- Incident Header -->
+            <div class="inc-detail">
+              <div class="inc-detail-header">
+                <span id="inc-cat" class="text-lg" style="font-weight:700">—</span>
+                <span class="badge" id="inc-status">—</span>
+              </div>
+              <div class="inc-detail-body">
+                <div class="detail-row">
+                  <div class="detail-label">Report ID</div>
+                  <div class="detail-value font-mono" id="inc-id">—</div>
+                </div>
+                <div class="detail-row">
+                  <div class="detail-label">Description</div>
+                  <div class="detail-value text-sm" id="inc-desc">—</div>
+                </div>
+                <div class="detail-row">
+                  <div class="detail-label">Reporter</div>
+                  <div class="detail-value" id="inc-reporter">—</div>
+                </div>
+                <div class="detail-row">
+                  <div class="detail-label">Phone</div>
+                  <div class="detail-value" id="inc-phone">—</div>
+                </div>
+                <div class="detail-row">
+                  <div class="detail-label">Location</div>
+                  <div class="detail-value text-sm" id="inc-address">—</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Navigation -->
+            <a id="nav-link" href="#" target="_blank" class="nav-btn">
+              🗺 Open Navigation in Google Maps
+            </a>
+
+            <!-- Status Update -->
+            <div style="margin-top:var(--space-5)">
+              <div class="form-label" style="margin-bottom:var(--space-3)">Update Status</div>
+              <div class="status-buttons" id="status-buttons">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Map -->
+      <main>
+        <div id="portal-map"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/ws.js"></script>
+  <script src="/js/responder-portal.js"></script>
+</body>
+</html>

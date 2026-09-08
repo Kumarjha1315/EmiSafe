@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dispatcher Login — EmiSafe</title>
+  <link rel="stylesheet" href="/css/global.css" />
+  <style>
+    body { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--space-6); }
+
+    .login-wrap {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .login-logo {
+      text-align: center;
+      margin-bottom: var(--space-8);
+    }
+
+    .login-icon {
+      width: 72px;
+      height: 72px;
+      background: linear-gradient(135deg, var(--teal), var(--teal-dim));
+      border-radius: var(--r-xl);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      margin: 0 auto var(--space-4);
+      box-shadow: 0 8px 32px var(--teal-glow);
+    }
+
+    .login-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-2xl);
+      padding: var(--space-8);
+      backdrop-filter: blur(20px);
+    }
+
+    .login-error {
+      background: var(--red-soft);
+      border: 1px solid rgba(230,57,70,0.2);
+      border-radius: var(--r-md);
+      padding: var(--space-3) var(--space-4);
+      color: var(--red);
+      font-size: 0.875rem;
+      display: none;
+      margin-bottom: var(--space-4);
+    }
+
+    .input-icon-wrap {
+      position: relative;
+    }
+
+    .input-icon-wrap .form-input {
+      padding-left: 44px;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 1rem;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-glow-teal"></div>
+  <div id="toast-container"></div>
+
+  <div class="login-wrap page-content">
+    <div class="login-logo">
+      <div class="login-icon">📡</div>
+      <div class="navbar-title" style="font-size:1.6rem">EmiSafe</div>
+      <div class="text-secondary text-sm" style="margin-top:4px">Dispatcher Control Center</div>
+    </div>
+
+    <div class="login-card">
+      <h1 class="text-xl" style="font-weight:700;margin-bottom:var(--space-6)">Sign In</h1>
+
+      <div id="login-error" class="login-error">
+        🔒 Invalid credentials. Please try again.
+      </div>
+
+      <form id="login-form" novalidate>
+        <div class="form-group" style="margin-bottom:var(--space-4)">
+          <label class="form-label" for="loginId">Login ID</label>
+          <div class="input-icon-wrap">
+            <span class="input-icon">🪪</span>
+            <input class="form-input" type="text" id="loginId" name="loginId"
+              placeholder="Enter dispatcher ID" autocomplete="username" required />
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:var(--space-6)">
+          <label class="form-label" for="password">Password</label>
+          <div class="input-icon-wrap">
+            <span class="input-icon">🔑</span>
+            <input class="form-input" type="password" id="password" name="password"
+              placeholder="Enter password" autocomplete="current-password" required />
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-teal btn-full btn-lg" id="login-btn">
+          Sign In to Dashboard
+        </button>
+      </form>
+
+      <div class="divider"></div>
+
+      <div style="text-align:center">
+        <a href="/" class="btn btn-ghost btn-sm">← Back to Home</a>
+      </div>
+    </div>
+
+    <p class="text-xs text-muted" style="text-align:center;margin-top:var(--space-4)">
+      Restricted access — Authorized dispatchers only.
+    </p>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Redirect if already logged in
+      if (sessionStorage.getItem('emisafe_token')) {
+        location.href = '/dispatcher/dashboard.html';
+      }
+
+      const form = document.getElementById('login-form');
+      const errorEl = document.getElementById('login-error');
+      const btn = document.getElementById('login-btn');
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errorEl.style.display = 'none';
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Signing in…';
+
+        try {
+          const data = await api.post('/auth/dispatcher-login', {
+            loginId: form.loginId.value.trim(),
+            password: form.password.value,
+          });
+
+          sessionStorage.setItem('emisafe_token', data.token);
+          showToast('Signed in successfully!', 'success', 2000);
+          setTimeout(() => { location.href = '/dispatcher/dashboard.html'; }, 800);
+        } catch (err) {
+          errorEl.style.display = 'block';
+          btn.disabled = false;
+          btn.innerHTML = 'Sign In to Dashboard';
+        }
+      });
+    });
+  </script>
+</body>
+</html>

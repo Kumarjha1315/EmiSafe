@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analytics — EmiSafe Dispatcher</title>
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { min-height: 100vh; overflow-y: auto; }
+    .analytics-page { max-width: 1400px; margin: 0 auto; padding: var(--space-8) var(--space-6); }
+
+    /* KPI Scorecards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: var(--space-4);
+      margin-bottom: var(--space-8);
+    }
+    @media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 700px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .kpi-scorecard {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: var(--space-5) var(--space-5);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      position: relative;
+      overflow: hidden;
+      transition: var(--transition);
+    }
+    .kpi-scorecard:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.12); }
+
+    .kpi-scorecard::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      border-radius: var(--r-lg) var(--r-lg) 0 0;
+    }
+
+    .kpi-scorecard:nth-child(1)::before { background: var(--purple); }
+    .kpi-scorecard:nth-child(2)::before { background: var(--red); }
+    .kpi-scorecard:nth-child(3)::before { background: var(--green); }
+    .kpi-scorecard:nth-child(4)::before { background: var(--amber); }
+    .kpi-scorecard:nth-child(5)::before { background: var(--teal); }
+
+    .kpi-icon { font-size: 1.5rem; }
+    .kpi-value-lg {
+      font-family: var(--font-display);
+      font-size: 2.2rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .kpi-label-lg { font-size: 0.8rem; color: var(--text-muted); }
+
+    .kpi-scorecard:nth-child(1) .kpi-value-lg { color: var(--purple); }
+    .kpi-scorecard:nth-child(2) .kpi-value-lg { color: var(--red); }
+    .kpi-scorecard:nth-child(3) .kpi-value-lg { color: var(--green); }
+    .kpi-scorecard:nth-child(4) .kpi-value-lg { color: var(--amber); }
+    .kpi-scorecard:nth-child(5) .kpi-value-lg { color: var(--teal); }
+
+    /* Charts Grid */
+    .charts-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-6);
+      margin-bottom: var(--space-6);
+    }
+
+    .charts-grid-3 {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: var(--space-6);
+      margin-bottom: var(--space-6);
+    }
+
+    @media (max-width: 1000px) {
+      .charts-grid-2, .charts-grid-3 { grid-template-columns: 1fr; }
+    }
+
+    .chart-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: var(--space-5);
+    }
+
+    .chart-title {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: var(--space-4);
+      color: var(--text-primary);
+    }
+
+    .chart-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: -var(--space-3);
+      margin-bottom: var(--space-4);
+    }
+
+    .chart-wrap { position: relative; height: 240px; }
+    .chart-wrap-sm { position: relative; height: 200px; }
+
+    /* Heatmap */
+    #heatmap-container { height: 380px; border-radius: var(--r-md); overflow: hidden; }
+
+    /* Leaderboard */
+    .leaderboard-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      margin-bottom: var(--space-6);
+    }
+
+    .leaderboard-header {
+      padding: var(--space-5);
+      border-bottom: 1px solid var(--border);
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-8);
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-glow-red"></div>
+  <div class="bg-glow-teal"></div>
+  <div id="toast-container"></div>
+
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">
+      <div class="navbar-logo">🚨</div>
+      <div>
+        <div class="navbar-title">EmiSafe</div>
+        <div class="navbar-subtitle">Analytics</div>
+      </div>
+    </a>
+    <div class="navbar-actions">
+      <a href="/dispatcher/dashboard.html" class="btn btn-secondary btn-sm">← Dashboard</a>
+      <button class="btn btn-ghost btn-sm" id="logout-btn">Sign Out</button>
+    </div>
+  </nav>
+
+  <div class="analytics-page page-content">
+    <div class="page-header">
+      <div>
+        <h1 class="display-md">Analytics & Performance</h1>
+        <p class="text-secondary text-sm">Real-time metrics across all incidents and field operations</p>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="loadAllAnalytics()">🔄 Refresh</button>
+    </div>
+
+    <!-- KPI Scorecards -->
+    <div class="kpi-grid">
+      <div class="kpi-scorecard">
+        <div class="kpi-icon">📋</div>
+        <div class="kpi-value-lg" id="kpi-total">—</div>
+        <div class="kpi-label-lg">Total Incidents</div>
+      </div>
+      <div class="kpi-scorecard">
+        <div class="kpi-icon">🚨</div>
+        <div class="kpi-value-lg" id="kpi-active">—</div>
+        <div class="kpi-label-lg">Active Incidents</div>
+      </div>
+      <div class="kpi-scorecard">
+        <div class="kpi-icon">✅</div>
+        <div class="kpi-value-lg" id="kpi-resolved">—</div>
+        <div class="kpi-label-lg">Resolved</div>
+      </div>
+      <div class="kpi-scorecard">
+        <div class="kpi-icon">⏱</div>
+        <div class="kpi-value-lg" id="kpi-response">—</div>
+        <div class="kpi-label-lg">Avg Response Time</div>
+      </div>
+      <div class="kpi-scorecard">
+        <div class="kpi-icon">👥</div>
+        <div class="kpi-value-lg" id="kpi-available">—</div>
+        <div class="kpi-label-lg">Responders Available</div>
+      </div>
+    </div>
+
+    <!-- Row 1: Activity Line + Type Pie + Status Donut -->
+    <div class="charts-grid-3">
+      <div class="chart-card">
+        <div class="chart-title">📈 Request Activity</div>
+        <div class="chart-subtitle text-xs" style="margin-bottom:var(--space-4)">Incidents reported over the last 30 days</div>
+        <div class="chart-wrap">
+          <canvas id="activity-chart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🍕 Incident Type</div>
+        <div class="chart-wrap">
+          <canvas id="type-chart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🔄 Status Breakdown</div>
+        <div class="chart-wrap">
+          <canvas id="status-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: Response Time Bar + Heatmap -->
+    <div class="charts-grid-2">
+      <div class="chart-card">
+        <div class="chart-title">⏱ Response Time by Category</div>
+        <div class="text-xs text-muted" style="margin-bottom:var(--space-4)">Avg time from report to dispatch vs. arrival (minutes)</div>
+        <div class="chart-wrap">
+          <canvas id="response-chart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🗺 Incident Hotspot Map</div>
+        <div id="heatmap-container"></div>
+      </div>
+    </div>
+
+    <!-- Leaderboard -->
+    <div class="leaderboard-card">
+      <div class="leaderboard-header">🏆 Responder Performance Leaderboard</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Responder</th>
+              <th>Department</th>
+              <th>Completed</th>
+              <th>Avg Response</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboard-body">
+            <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/dispatcher-analytics.js"></script>
+  <script>
+    // Configure Chart.js global defaults for dark theme
+    Chart.defaults.color = '#8892A4';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+    Chart.defaults.font.family = "'Inter', sans-serif";
+  </script>
+</body>
+</html>
