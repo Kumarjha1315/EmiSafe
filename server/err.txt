@@ -1,0 +1,11 @@
+TypeError: connectDB is not a function
+    at Object.<anonymous> (C:\Users\Kumar Jha\EmiSafe\server\index.js:19:1)
+    at Module._compile (node:internal/modules/cjs/loader:1812:14)
+    at Object..js (node:internal/modules/cjs/loader:1943:10)
+    at Module.load (node:internal/modules/cjs/loader:1533:32)
+    at Module._load (node:internal/modules/cjs/loader:1335:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.require (node:internal/modules/cjs/loader:1556:12)
+    at require (node:internal/modules/helpers:152:16)
+    at [eval]:1:7
+    at runScriptInThisContext (node:internal/vm:219:10)

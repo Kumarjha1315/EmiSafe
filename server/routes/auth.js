@@ -1,5 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const { db } = require('../config/db');
+
 const router = express.Router();
 
 /**
@@ -22,7 +24,7 @@ router.post('/dispatcher-login', (req, res) => {
 
   const token = jwt.sign(
     { role: 'dispatcher', id: loginId },
-    process.env.JWT_SECRET,
+    process.env.JWT_SECRET || 'emisafe_secret_key',
     { expiresIn: '12h' }
   );
 
@@ -31,10 +33,9 @@ router.post('/dispatcher-login', (req, res) => {
 
 /**
  * POST /api/auth/responder-login
- * Field responder lookup by badgeId + email; returns a short-lived token.
+ * Field responder lookup by badgeId + email in Firestore; returns a short-lived token.
  */
 router.post('/responder-login', async (req, res) => {
-  const Responder = require('../models/Responder');
   const { badgeId, email } = req.body;
 
   if (!badgeId || !email) {
@@ -42,18 +43,31 @@ router.post('/responder-login', async (req, res) => {
   }
 
   try {
-    const responder = await Responder.findOne({
-      badgeId: badgeId.trim(),
-      email: email.trim().toLowerCase(),
-    }).populate('assignedIncident');
+    const snapshot = await db
+      .collection('responders')
+      .where('badgeId', '==', badgeId.trim())
+      .where('email', '==', email.trim().toLowerCase())
+      .limit(1)
+      .get();
 
-    if (!responder) {
+    if (snapshot.empty) {
       return res.status(404).json({ error: 'No responder found with these credentials.' });
     }
 
+    const doc = snapshot.docs[0];
+    const responderData = doc.data();
+    const responder = { id: doc.id, _id: doc.id, ...responderData };
+
+    if (responder.assignedIncident) {
+      const incDoc = await db.collection('incidents').doc(responder.assignedIncident).get();
+      if (incDoc.exists) {
+        responder.assignedIncident = { id: incDoc.id, _id: incDoc.id, ...incDoc.data() };
+      }
+    }
+
     const token = jwt.sign(
-      { role: 'responder', id: responder._id.toString() },
-      process.env.JWT_SECRET,
+      { role: 'responder', id: responder.id },
+      process.env.JWT_SECRET || 'emisafe_secret_key',
       { expiresIn: '24h' }
     );
 

@@ -55,10 +55,5 @@ server.listen(PORT, () => {
   console.log('');
 });
 
-// ─── Graceful Shutdown ──────────────────────────────────────────────────────
-process.on('SIGTERM', () => {
-  server.close(() => {
-    console.log('Server gracefully shut down.');
-    process.exit(0);
-  });
-});
+// ─── Export ─────────────────────────────────────────────────────────────────
+module.exports = app;

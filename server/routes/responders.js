@@ -1,9 +1,32 @@
 const express = require('express');
-const Responder = require('../models/Responder');
+const { db } = require('../config/db');
 const authMiddleware = require('../middleware/authMiddleware');
 const { broadcast } = require('../ws/socketHandler');
 
 const router = express.Router();
+
+/**
+ * Helper: Populate assignedIncident object onto responder.
+ */
+async function populateResponder(respData, respId) {
+  const responder = { id: respId, _id: respId, ...respData };
+  if (responder.assignedIncident) {
+    if (typeof responder.assignedIncident === 'string') {
+      const incDoc = await db.collection('incidents').doc(responder.assignedIncident).get();
+      if (incDoc.exists) {
+        const incData = incDoc.data();
+        responder.assignedIncident = {
+          id: incDoc.id,
+          _id: incDoc.id,
+          reportId: incData.reportId,
+          category: incData.category,
+          status: incData.status,
+        };
+      }
+    }
+  }
+  return responder;
+}
 
 // ─── PUBLIC ────────────────────────────────────────────────────────────────
 
@@ -19,21 +42,41 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'All fields are required.' });
     }
 
-    const existing = await Responder.findOne({ $or: [{ badgeId }, { email: email.toLowerCase() }] });
-    if (existing) {
+    const badgeCheck = await db
+      .collection('responders')
+      .where('badgeId', '==', badgeId.trim())
+      .limit(1)
+      .get();
+
+    const emailCheck = await db
+      .collection('responders')
+      .where('email', '==', email.trim().toLowerCase())
+      .limit(1)
+      .get();
+
+    if (!badgeCheck.empty || !emailCheck.empty) {
       return res.status(409).json({ error: 'Badge ID or email already registered.' });
     }
 
-    const responder = new Responder({
+    const now = new Date().toISOString();
+    const responderData = {
       department,
-      fullName,
-      badgeId,
-      email,
-      phone,
+      fullName: fullName.trim(),
+      badgeId: badgeId.trim(),
+      email: email.trim().toLowerCase(),
+      phone: phone.trim(),
       yearsOfExperience: parseInt(yearsOfExperience),
-    });
+      status: 'Pending',
+      currentLocation: { lat: null, lng: null },
+      assignedIncident: null,
+      completedIncidents: 0,
+      totalResponseTimeMinutes: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
 
-    await responder.save();
+    const docRef = await db.collection('responders').add(responderData);
+    const responder = { id: docRef.id, _id: docRef.id, ...responderData };
 
     // Notify dispatcher of new registration
     broadcast({ type: 'new_responder', data: responder });
@@ -47,21 +90,26 @@ router.post('/register', async (req, res) => {
 
 /**
  * PATCH /api/responders/:id/location
- * Field responder publishes their live GPS location.
+ * Field responder publishes live GPS location.
  */
 router.patch('/:id/location', async (req, res) => {
   try {
     const { lat, lng } = req.body;
-    const responder = await Responder.findByIdAndUpdate(
-      req.params.id,
-      { currentLocation: { lat, lng } },
-      { new: true }
-    );
-    if (!responder) return res.status(404).json({ error: 'Responder not found.' });
+    const respRef = db.collection('responders').doc(req.params.id);
+    const doc = await respRef.get();
 
+    if (!doc.exists) return res.status(404).json({ error: 'Responder not found.' });
+
+    const now = new Date().toISOString();
+    await respRef.update({
+      currentLocation: { lat: parseFloat(lat), lng: parseFloat(lng) },
+      updatedAt: now,
+    });
+
+    const rData = doc.data();
     broadcast({
       type: 'responder_location',
-      data: { responderId: responder._id, lat, lng, incidentId: responder.assignedIncident },
+      data: { responderId: req.params.id, lat, lng, incidentId: rData.assignedIncident },
     });
 
     res.json({ success: true });
@@ -79,13 +127,17 @@ router.patch('/:id/location', async (req, res) => {
  */
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const filter = {};
-    if (req.query.status) filter.status = req.query.status;
-    if (req.query.department) filter.department = req.query.department;
+    let query = db.collection('responders');
+    if (req.query.status) query = query.where('status', '==', req.query.status);
+    if (req.query.department) query = query.where('department', '==', req.query.department);
 
-    const responders = await Responder.find(filter)
-      .populate('assignedIncident', 'reportId category status')
-      .sort({ createdAt: -1 });
+    const snapshot = await query.get();
+    let responders = await Promise.all(
+      snapshot.docs.map((doc) => populateResponder(doc.data(), doc.id))
+    );
+
+    // Sort descending by createdAt
+    responders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     res.json(responders);
   } catch (err) {
@@ -106,12 +158,15 @@ router.patch('/:id/status', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Invalid status.' });
     }
 
-    const responder = await Responder.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    );
-    if (!responder) return res.status(404).json({ error: 'Responder not found.' });
+    const respRef = db.collection('responders').doc(req.params.id);
+    const doc = await respRef.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Responder not found.' });
+
+    const now = new Date().toISOString();
+    await respRef.update({ status, updatedAt: now });
+
+    const updatedDoc = await respRef.get();
+    const responder = await populateResponder(updatedDoc.data(), req.params.id);
 
     broadcast({ type: 'responder_update', data: responder });
     res.json(responder);
@@ -127,7 +182,7 @@ router.patch('/:id/status', authMiddleware, async (req, res) => {
  */
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
-    await Responder.findByIdAndDelete(req.params.id);
+    await db.collection('responders').doc(req.params.id).delete();
     res.json({ message: 'Responder removed.' });
   } catch (err) {
     console.error(err);
