@@ -31,7 +31,12 @@ function initMap() {
 }
 
 function initHistory() {
-  const history = JSON.parse(localStorage.getItem('emisafe_reports') || '[]');
+  const raw = JSON.parse(localStorage.getItem('emisafe_reports') || '[]');
+  const history = raw.filter(
+    (item) => item && item.reportId && item.reportId !== 'undefined' && item.reportId !== 'null'
+  );
+  localStorage.setItem('emisafe_reports', JSON.stringify(history));
+
   const list = document.getElementById('history-list');
   if (!list) return;
 
@@ -57,6 +62,7 @@ function initHistory() {
     });
   });
 }
+
 
 function initSearch() {
   const form = document.getElementById('track-form');

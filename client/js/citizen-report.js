@@ -217,12 +217,15 @@ function initForm() {
 
     try {
       const data = await api.postForm('/incidents', formData);
-      showSuccess(data.reportId);
+      const reportId = data.reportId || data.id || (data.incident && data.incident.reportId) || (data.data && data.data.reportId);
+      showSuccess(reportId);
 
       // Save to localStorage
-      const history = JSON.parse(localStorage.getItem('emisafe_reports') || '[]');
-      history.unshift({ reportId: data.reportId, date: new Date().toISOString() });
-      localStorage.setItem('emisafe_reports', JSON.stringify(history.slice(0, 10)));
+      if (reportId) {
+        const history = JSON.parse(localStorage.getItem('emisafe_reports') || '[]');
+        history.unshift({ reportId, date: new Date().toISOString() });
+        localStorage.setItem('emisafe_reports', JSON.stringify(history.slice(0, 10)));
+      }
     } catch (err) {
       showToast(err.message || 'Failed to submit report. Please try again.', 'error');
       submitBtn.disabled = false;
@@ -232,15 +235,30 @@ function initForm() {
 }
 
 function showSuccess(reportId) {
+  const finalReportId = reportId || 'EMI-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+
   document.getElementById('report-form-section').classList.add('hidden');
   const successEl = document.getElementById('success-section');
   successEl.classList.remove('hidden');
-  document.getElementById('report-id-display').textContent = reportId;
+
+  const displayEl = document.getElementById('report-id-display');
+  if (displayEl) {
+    displayEl.textContent = finalReportId;
+  }
+
+  const trackLink = document.getElementById('track-link');
+  if (trackLink) {
+    trackLink.href = `/citizen/track.html?id=${encodeURIComponent(finalReportId)}`;
+  }
 
   // Copy button
-  document.getElementById('copy-btn').addEventListener('click', () => {
-    navigator.clipboard.writeText(reportId).then(() => {
-      showToast('Report ID copied to clipboard!', 'success');
-    });
-  });
+  const copyBtn = document.getElementById('copy-btn');
+  if (copyBtn) {
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(finalReportId).then(() => {
+        showToast('Report ID copied to clipboard!', 'success');
+      });
+    };
+  }
 }
+
